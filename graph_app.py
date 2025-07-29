@@ -292,39 +292,47 @@ def is_delta_asymmetric(G, delta=0.3):
 
 
 def degree_of_asymmetry(G):
-	n = len(G)
+    n = G.order()
+    V = list(G.vertices())
+    if not is_asymmetric(G):
+        return 0
 
-	edges = set()
-	for u in range(n):
-		for v in range(n):
-			if u < v and G.has_edge(u, v):
-				edges.add((u, v))
+    edges = set()
+    for u, v in G.edges(labels = False):
+        if u < v:
+            edges.add((u, v))
+        else:
+            edges.add((v, u))
 
-	changes = None
+    changes = None
 
-	for H in graphs(n):
-		symEdges = set()
-		for u in range(n):
-			for v in range(n):
-				if u < v and H.has_edge(u, v):
-					symEdges.add((u, v))
+    for H in graphs(n):
+        if H.automorphism_group().is_trivial():
+            continue
+        symEdges = set()
+        for u, v in H.edges(labels = False):
+            if u < v:
+                symEdges.add((u, v))
+            else:
+                symEdges.add((v, u))
 
-	
-	deleted = 0
-	for j in edges:
-		if j not in symEdges:
-			deleted += 1
+        deleted = 0
+        for e in edges:
+            if e not in symEdges:
+                deleted += 1
 
-	added = 0
-	for j in symEdges:
-		if j not in edges:
-			added +=1
+        added = 0
+        for e in symEdges:
+            if e not in edges:
+                added +=1
 
-	res = deleted + added
-	if changes is None or res < changes:
-		changes = res
+        res = deleted + added
+        if changes is None or res < changes:
+            changes = res
 
-	return changes 
+    if changes is None:
+        return len(edges)
+    return changes 
 
 
 
@@ -403,6 +411,139 @@ def is_maximally_asymmetric(G):
     return ag == maxAG
 
 
+def gen_combinations(arr, k):
+    res = []
+    def backtrack(start, path):
+        if len (path) == k:
+            res.append(path[:])
+            return
+        for i in range(start, len(arr)):
+            path.append(arr[i])
+            backtrack(i + 1, path)
+            path.pop()
+    backtrack(0, [])
+    return res
+
+
+def gen_permut(arr):
+    res = []
+    def permute(path, used):
+        if len(path) == len(arr):
+            res.append(path[:])
+            return
+        for i in range(len(arr)):
+            if not used[i]:
+                used[i] = True
+                path.append(arr[i])
+                permute(path, used)
+                path.pop()
+                used[i] = False
+    permute([], [False] * len(arr))
+    return res
+
+
+def asymmetric_depth(G):
+    n = G.order()
+    V = list(G.vertices())
+    if n < 2:
+        return 0
+
+
+    for k in range(n, 1, -1):
+        aSubs = gen_combinations(V, k)
+        for i in range(len(aSubs)):
+            A = aSubs[i]
+            for j in range(len(aSubs)):
+                B = aSubs[j]
+                if set(A) == set(B):
+                    continue
+                permutations = gen_permut(B)
+                for perm in permutations:
+                    isIdentity = True
+                    for idx in range(k):
+                        if A[idx] != perm[idx]:
+                            isIdentity = False
+                            break
+                    if isIdentity:
+                        continue
+                    bijection = {}
+                    for idx in range(k):
+                        bijection[A[idx]] = perm[idx]
+                    partAut = True
+                    for p1 in range(k):
+                        for p2 in range(k):
+                            if p1 == p2:
+                                continue
+                            u1, v1 = A[p1], A[p2]
+                            u2, v2 = bijection[u1], bijection[v1]
+                            if G.has_edge(u1, v1) != G.has_edge(u2, v2):
+                                partAut = False
+                                break
+                        if not partAut:
+                            break
+                    if partAut:
+                        return n - k
+    return n - 1
+
+
+def negative_degree_of_asymmetry(G):
+    if not is_asymmetric(G):
+        return 0
+
+    edges = G.edges(labels = False)
+    n = len(edges)
+    if n == 0:
+        return 0
+
+    for i in range (1, n + 1):
+        edgeSubs = gen_combinations(edges,i)
+        for set in edgeSubs:
+            newEdges = []
+            for e in edges:
+                if e not in set:
+                    newEdges.append(e)
+            H = Graph(newEdges)
+            if not H.automorphism_group().is_trivial():
+                return i
+    return n
+
+
+def positive_degree_of_asymmetry(G):
+    if not is_asymmetric(G):
+        return 0
+
+    V = list(G.vertices())
+    edges = set()
+    for u, v in G.edges(labels = False):
+        if u < v:
+            edges.add((u, v))
+        else:
+            edges.add((v, u))
+
+    nEdges = []
+    n = len(V)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if (V[i], V[j]) not in edges:
+                nEdges.append((V[i], V[j]))
+    m = len(nEdges)
+    if m == 0:
+        return 0
+
+    for i in range(1, m + 1):
+        addSets = gen_combinations(nEdges, i)
+        for set in addSets:
+            newEdges = list(G.edges(labels = False))
+            for e in set:
+                if e not in set:
+                    newEdges.append(e)
+            H = Graph(newEdges)
+            if not H.automorphism_group().is_trivial():
+                return i
+    return m
+
+
+
 class GraphApp(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -454,7 +595,10 @@ class GraphApp(QWidget):
     			("Strongly Minimal Asymmetric", is_strongly_minimal_asymmetric(X, M, 2)),
     			("Robustly Asymmetric", is_delta_asymmetric(G, delta = 0.3)),
     			("Maximally Asymmetric", is_maximally_asymmetric(G)),
-    			("The degree of asymmetry", degree_of_asymmetry(G))
+    			("The degree of asymmetry", degree_of_asymmetry(G)),
+    			("Asymmetric depth", asymmetric_depth(G)),
+    			("Negative degree of asymmetry", negative_degree_of_asymmetry(G)),
+    			("Positive degree of asymmetry", positive_degree_of_asymmetry(G))
        		]
 
 		self.table.setRowCount(len(results))
