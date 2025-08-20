@@ -83,7 +83,7 @@ def is_rigid(G):
             if mapping[pos] < n:
                 break
             mapping[pos] = 0
-            pos =- 1
+            pos -= 1
 
         if pos < 0:
             break
@@ -102,7 +102,8 @@ def is_bipartite(G):
 
 
 def is_strongly_asymmetric(G):
-
+	if not is_asymmetric(G):
+		return False
 	vertices = list(G.vertices())
 	visited = {}
 
@@ -139,6 +140,10 @@ def is_minimal_asymmetric(G, minimal_asymmetric_graphs):
 
 
 def createKgraph(G):
+	g6 = G.graph6_string()
+	if g6 not in minimal_asymmetric_graphs:
+		return [], []
+
 	X = G.vertices()
 
 	M = []
@@ -187,6 +192,9 @@ def asym_hypergraph(X, M):
 
 
 def is_strongly_minimal_asymmetric(X, M, k):
+	if len(X) == 0 or len(M) == 0:
+		return False
+
 	if not asym_hypergraph(X, M):
 		return False
 
@@ -220,6 +228,9 @@ def is_strongly_minimal_asymmetric(X, M, k):
 
 
 def is_delta_asymmetric(G, delta=0.3):
+	if not is_asymmetric(G):
+		return False
+
 	n = G.order()
 	m = G.size()
 	V = G.vertices()
@@ -342,6 +353,8 @@ def degree_of_asymmetry(G):
 
 def is_maximally_asymmetric(G, maximally_asymmetric_graphs):
     n = G.order()
+    if not is_asymmetric(G) or n <= 5:
+        return False
 
     if n == 10 and degree_of_asymmetry(G) == 4:
         return True
@@ -382,9 +395,10 @@ def gen_permut(arr):
 
 
 def asymmetric_depth(G):
+
     n = G.order()
     V = list(G.vertices())
-    if n < 2:
+    if n < 2 or not is_asymmetric(G):
         return 0
 
 
